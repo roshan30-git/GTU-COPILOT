@@ -1,0 +1,117 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GTU Copilot</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+      body {
+        font-family: 'Outfit', sans-serif;
+        background-color: #1e1b4b; /* Indigo 950 */
+        color: #f8fafc;
+      }
+      
+      h1, h2, h3, h4, h5, h6 {
+        font-family: 'Nunito', sans-serif;
+      }
+      
+      /* Playful Dot Background */
+      .bg-dot-pattern {
+        background-image: radial-gradient(#6366f1 1.5px, transparent 1.5px);
+        background-size: 24px 24px;
+        opacity: 0.15;
+      }
+
+      /* Scrollbar Styling - Round & Fun */
+      ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+      }
+      ::-webkit-scrollbar-track {
+        background: rgba(30, 27, 75, 0.5); 
+        border-radius: 5px;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #6366f1; 
+        border-radius: 5px;
+        border: 2px solid rgba(30, 27, 75, 0.5);
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #818cf8; 
+      }
+
+      /* PPT Preview Slides */
+      .slide {
+        border: 2px solid rgba(255,255,255,0.1);
+        padding: 2.5rem;
+        margin-bottom: 1.5rem;
+        background-color: white;
+        color: #1e293b;
+        min-height: 450px; 
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        position: relative;
+        overflow: hidden;
+        display: block; 
+        border-radius: 24px;
+      }
+      .slide * {
+        box-sizing: border-box;
+      }
+      .slide h1 {
+        font-family: 'Nunito', sans-serif;
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        line-height: 1.1;
+        font-weight: 900;
+        letter-spacing: -0.02em;
+        color: #4f46e5;
+      }
+      .slide p {
+        font-size: 1.35rem;
+        margin-bottom: 0.75rem;
+        line-height: 1.6;
+      }
+      .slide ul {
+        list-style-position: inside;
+        text-align: left;
+      }
+      
+      /* Print Styles for Physics Report */
+      @media print {
+        @page { margin: 2cm; }
+        body { 
+          background: white !important; 
+          color: black !important; 
+          display: block !important;
+        }
+        #root { display: none !important; }
+        #print-area { display: block !important; }
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.29.1",
+    "docx": "https://esm.sh/docx@8.5.0",
+    "file-saver": "https://esm.sh/file-saver@2.0.5"
+  }
+}
+</script>
+</head>
+  <body class="bg-indigo-950 text-indigo-50 min-h-screen relative overflow-x-hidden selection:bg-pink-500 selection:text-white">
+    <div class="fixed inset-0 bg-dot-pattern pointer-events-none z-0"></div>
+    <div id="root" class="relative z-10"></div>
+    <div id="print-area" class="hidden"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
