@@ -4,6 +4,14 @@ import { generateReport, humanizeText } from '../services/geminiService';
 import { ClipboardIcon } from './icons/ClipboardIcon';
 import { DownloadIcon } from './icons/DownloadIcon';
 import { HumanizeIcon } from './icons/HumanizeIcon';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
+import saveAs from 'file-saver';
+
+// Helper to sanitize text for XML (removes control characters that break docx)
+const sanitizeText = (text: string) => {
+    // Removes control chars 0-31 (except 9=tab, 10=LF, 13=CR) and 127
+    return text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+};
 
 export const ReportGenerator: React.FC = () => {
   const [subject, setSubject] = useState('');
@@ -54,16 +62,82 @@ export const ReportGenerator: React.FC = () => {
     navigator.clipboard.writeText(report);
   };
   
-  const handleDownload = () => {
-    const blob = new Blob([report], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${subject.replace(/\s+/g, '_')}_${topic.replace(/\s+/g, '_')}_Report.docx`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  const handleDownload = async () => {
+    if (!report) return;
+
+    const lines = report.split('\n');
+    const docChildren: Paragraph[] = [];
+
+    // Add Main Title
+    docChildren.push(new Paragraph({
+        text: sanitizeText((subject + " - " + topic).toUpperCase()),
+        heading: HeadingLevel.HEADING_1,
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 300 }
+    }));
+
+    lines.forEach(line => {
+        const trimmed = line.trim();
+        if (!trimmed) return;
+
+        // Detect Headers (e.g., "Introduction", "Part 1", "Conclusion" or all caps headings)
+        const isHeader = /^(Introduction|Part \d+|Conclusion|References|Summary)$/i.test(trimmed) || 
+                         (trimmed === trimmed.toUpperCase() && trimmed.length > 3 && trimmed.length < 50 && !trimmed.includes('.'));
+
+        if (isHeader) {
+            docChildren.push(new Paragraph({
+                text: sanitizeText(trimmed),
+                heading: HeadingLevel.HEADING_2,
+                spacing: { before: 200, after: 100 }
+            }));
+        } else if (trimmed.startsWith('- ') || trimmed.startsWith('• ') || trimmed.startsWith('* ')) {
+            // List items
+             const content = trimmed.replace(/^[-•*]\s*/, '');
+             const parts = content.split(/(\*\*.*?\*\*)/g);
+             const textRuns = parts.map(part => {
+                const cleanPart = sanitizeText(part);
+                if (part.startsWith('**') && part.endsWith('**')) {
+                    return new TextRun({ text: cleanPart.slice(2, -2), bold: true });
+                }
+                return new TextRun({ text: cleanPart });
+             });
+
+             docChildren.push(new Paragraph({
+                children: textRuns,
+                bullet: { level: 0 }
+            }));
+        } else {
+            // Standard Paragraphs with bold parsing
+            const parts = trimmed.split(/(\*\*.*?\*\*)/g);
+            const textRuns = parts.map(part => {
+                const cleanPart = sanitizeText(part);
+                if (part.startsWith('**') && part.endsWith('**')) {
+                    return new TextRun({ text: cleanPart.slice(2, -2), bold: true });
+                }
+                return new TextRun({ text: cleanPart });
+            });
+
+            docChildren.push(new Paragraph({
+                children: textRuns,
+                spacing: { after: 100 }
+            }));
+        }
+    });
+
+    const doc = new Document({
+        sections: [{
+            properties: {},
+            children: docChildren
+        }]
+    });
+
+    try {
+        const blob = await Packer.toBlob(doc);
+        saveAs(blob, `${subject.replace(/\s+/g, '_')}_${topic.replace(/\s+/g, '_')}_Report.docx`);
+    } catch (e) {
+        console.error("Error creating docx", e);
+        alert("Failed to create document file. Please try text copy.");
+    }
   };
 
   return (

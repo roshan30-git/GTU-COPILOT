@@ -7,6 +7,17 @@ if (!API_KEY) {
 }
 const ai = new GoogleGenAI({ apiKey: API_KEY || "YOUR_API_KEY_HERE" });
 
+// Helper to safely parse JSON from Gemini (strips markdown code blocks)
+const parseGeminiJson = (text: string) => {
+    try {
+        const cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
+        return JSON.parse(cleaned);
+    } catch (e) {
+        console.error("JSON Parse Error on text:", text);
+        return [];
+    }
+};
+
 export const generateReport = async (subject: string, topic: string, hours: string, context: string): Promise<string> => {
   const videoContext = context.trim() 
     ? context 
@@ -152,7 +163,7 @@ export const generatePptData = async (topic: string, slideCount: number): Promis
     - "layout": Choose best layout from: "title", "content_left" (image left, text right), "content_right" (image right, text left), "center" (centered text), "thank_you".
     - "content": An array of strings. For title slides, index 0 is subtitle. For others, they are bullet points.
     
-    Return strictly a JSON Array.
+    Return strictly a JSON Array. Do not wrap in markdown code blocks.
   `;
 
   try {
@@ -177,7 +188,7 @@ export const generatePptData = async (topic: string, slideCount: number): Promis
       }
     });
     
-    return JSON.parse(response.text || "[]");
+    return parseGeminiJson(response.text || "[]");
   } catch (error) {
     console.error("Error generating PPT Data:", error);
     throw new Error("Failed to generate presentation content. Please check your API key and try again.");
@@ -186,37 +197,20 @@ export const generatePptData = async (topic: string, slideCount: number): Promis
 
 export const getExpertAnswer = async (query: string): Promise<string> => {
   const prompt = `
-    SYSTEM ROLE: You are an Expert GTU Educational Tutor Agent, designed to explain any engineering or physics topic in a way that even a complete beginner can understand.
-    YOUR RESPONSIBILITIES:
-    1. Interpret the user’s topic or question: "${query}"
-    2. Explain the concept from scratch, assuming the student has no prior knowledge.
-    3. Adjust answer length dynamically:
-       - If the topic is simple → give a short, concise explanation.
-       - If the topic is complex → give a clear, structured long explanation.
-    4. Add memory techniques: Provide a simple trick, mnemonic, analogy, or shortcut to help the student remember the concept.
-    5. Use clear structure with headings, steps, and examples.
-    6. End with an infographic-style diagram description: Provide a text-based infographic/diagram prompt that visually explains the concept in a clean, minimal way.
-
-    STRICT OUTPUT FORMAT (MARKDOWN):
-    Use **Bold** for key terms and ## for Headers.
-
-    ## CONCEPT EXPLANATION
-    (Beginner-friendly explanation here...)
-
-    ## WHY IT MATTERS
-    (Context on importance...)
-
-    ## REAL-LIFE ANALOGY
-    (Simple comparison...)
-
-    ## MEMORY TRICK / HOW TO REMEMBER
-    (Mnemonic, trick, or shortcut...)
-
-    ## SHORT SUMMARY
-    (One or two sentences...)
-
-    INFOGRAPHIC DIAGRAM PROMPT
-    (Copy-friendly prompt text...)
+    SYSTEM ROLE: You are an Expert GTU Educational Tutor Agent.
+    
+    STRICT INSTRUCTIONS:
+    1.  **BE CONCISE**: The student needs a quick, clear explanation. Do not write a thesis. Max 300 words.
+    2.  **STAY ON TOPIC**: Answer strictly what is asked. Do not wander into unrelated details.
+    3.  **NO FLUFF**: Skip the "Hello", "Here is your answer", "I hope this helps" intros/outros. Start directly with the concept.
+    4.  **STRUCTURE**:
+        -   **Concept**: 2-3 sentences max defining it.
+        -   **Key Points**: 3-4 bullet points.
+        -   **Analogy**: 1 sentence real-world comparison.
+        -   **Memory Trick**: A mnemonic or short trick.
+    5.  **DIAGRAM**: End with "INFOGRAPHIC DIAGRAM PROMPT" and a visual description line.
+    
+    QUERY: "${query}"
   `;
   try {
     const response = await ai.models.generateContent({
@@ -265,7 +259,7 @@ export const generateQuiz = async (context: string): Promise<any[]> => {
         contents: prompt,
         config: { responseMimeType: 'application/json' }
       });
-      return JSON.parse(response.text || "[]");
+      return parseGeminiJson(response.text || "[]");
     } catch (error) {
       console.error("Quiz generation error:", error);
       return [];
@@ -308,7 +302,7 @@ export const generatePhysicsProjectIdeas = async (budget: string, interest: stri
                 }
             }
         });
-        return JSON.parse(response.text || "[]");
+        return parseGeminiJson(response.text || "[]");
     } catch (error) {
         console.error("Idea generation error:", error);
         return [];
@@ -361,7 +355,7 @@ export const generatePhysicsReportJSON = async (modelName: string, dept: string,
                 }
             }
         });
-        return JSON.parse(response.text || "{}");
+        return parseGeminiJson(response.text || "{}");
     } catch (error) {
         console.error("Physics Report JSON error", error);
         throw new Error("Failed to generate report structure. Please try again.");

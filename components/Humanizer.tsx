@@ -3,6 +3,13 @@ import React, { useState } from 'react';
 import { humanizeText } from '../services/geminiService';
 import { ClipboardIcon } from './icons/ClipboardIcon';
 import { DownloadIcon } from './icons/DownloadIcon';
+import { Document, Packer, Paragraph, TextRun } from 'docx';
+import saveAs from 'file-saver';
+
+// Helper to sanitize text for XML
+const sanitizeText = (text: string) => {
+    return text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+};
 
 export const Humanizer: React.FC = () => {
   const [inputText, setInputText] = useState('');
@@ -34,16 +41,49 @@ export const Humanizer: React.FC = () => {
     navigator.clipboard.writeText(resultText);
   };
   
-  const handleDownload = () => {
-    const blob = new Blob([resultText], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Humanized_Text_${Date.now()}.docx`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  const handleDownload = async () => {
+    if (!resultText) return;
+
+    const lines = resultText.split('\n');
+    const docChildren: Paragraph[] = [];
+
+    lines.forEach(line => {
+        const trimmed = line.trim();
+        if (!trimmed) {
+             docChildren.push(new Paragraph({ text: "" })); // Empty line
+             return;
+        }
+
+        // Check for Bold parsing
+        const parts = trimmed.split(/(\*\*.*?\*\*)/g);
+        const textRuns = parts.map(part => {
+            const cleanPart = sanitizeText(part);
+            if (part.startsWith('**') && part.endsWith('**')) {
+                return new TextRun({ text: cleanPart.slice(2, -2), bold: true });
+            }
+            return new TextRun({ text: cleanPart });
+        });
+
+        docChildren.push(new Paragraph({
+            children: textRuns,
+            spacing: { after: 120 } // Slightly larger spacing for humanized text readability
+        }));
+    });
+
+    const doc = new Document({
+        sections: [{
+            properties: {},
+            children: docChildren
+        }]
+    });
+
+    try {
+        const blob = await Packer.toBlob(doc);
+        saveAs(blob, `Humanized_Report_${Date.now()}.docx`);
+    } catch (e) {
+        console.error("Error creating docx", e);
+        alert("Failed to create document file.");
+    }
   };
 
   return (
