@@ -245,7 +245,6 @@ Conclusion: ${report.conclusion}
                                 new ImageRun({
                                     data: aimImageBuffer,
                                     transformation: { width: 400, height: 300 },
-                                    type: aimImageType,
                                 }),
                             ],
                             alignment: AlignmentType.CENTER,
@@ -297,7 +296,6 @@ Conclusion: ${report.conclusion}
                                 new ImageRun({
                                     data: concImageBuffer,
                                     transformation: { width: 400, height: 300 },
-                                    type: concImageType,
                                 }),
                             ],
                             alignment: AlignmentType.CENTER,

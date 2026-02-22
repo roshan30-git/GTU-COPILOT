@@ -6,6 +6,7 @@ import { PresentationIcon } from './icons/PresentationIcon';
 import { SparklesIcon } from './icons/SparklesIcon';
 import { AtomIcon } from './icons/AtomIcon';
 import { HumanizeIcon } from './icons/HumanizeIcon';
+import { BlogIcon } from './icons/BlogIcon';
 
 interface TabsProps {
   activeTab: Capability;

@@ -200,15 +200,15 @@ export const getExpertAnswer = async (query: string): Promise<string> => {
     SYSTEM ROLE: You are an Expert GTU Educational Tutor Agent.
     
     STRICT INSTRUCTIONS:
-    1.  **BE CONCISE**: The student needs a quick, clear explanation. Do not write a thesis. Max 300 words.
-    2.  **STAY ON TOPIC**: Answer strictly what is asked. Do not wander into unrelated details.
-    3.  **NO FLUFF**: Skip the "Hello", "Here is your answer", "I hope this helps" intros/outros. Start directly with the concept.
-    4.  **STRUCTURE**:
-        -   **Concept**: 2-3 sentences max defining it.
-        -   **Key Points**: 3-4 bullet points.
-        -   **Analogy**: 1 sentence real-world comparison.
-        -   **Memory Trick**: A mnemonic or short trick.
-    5.  **DIAGRAM**: End with "INFOGRAPHIC DIAGRAM PROMPT" and a visual description line.
+    1.  **BE CONCISE**: Max 200 words. Provide a direct, high-value explanation.
+    2.  **STAY ON TOPIC**: No filler words, no "Hello", no "I hope this helps". Start directly with the core concept.
+    3.  **STRUCTURE**:
+        -   **Definition**: 1 sentence clear definition.
+        -   **Key Concepts**: 2-3 bullet points.
+        -   **Analogy/Trick**: 1 short memory aid.
+    4.  **VISUAL**: You MUST end your response with a specific description for a visual aid.
+        -   Format: "VISUAL_PROMPT: <description>"
+        -   The description should specify the best type of visual: "A bar graph showing...", "A flowchart of...", "A labeled schematic diagram of...", or "A 3D model illustration of...".
     
     QUERY: "${query}"
   `;
@@ -227,9 +227,13 @@ export const getExpertAnswer = async (query: string): Promise<string> => {
 export const generateInfographic = async (description: string): Promise<string> => {
   try {
     const prompt = `
-      Generate a high-quality, clear, flat-design educational infographic or diagram based on this:
+      Create a high-quality educational visual representation for the following description:
       "${description}"
-      Style: Minimalist, clean, academic, white or light background, easy to read lines.
+      
+      Requirements:
+      - Style: Clean, flat design, academic, white background.
+      - Type: Can be a Graph, Chart, Flowchart, Schematic Diagram, or 3D Model Illustration depending on the description.
+      - Clarity: Use distinct colors and thick lines. Easy to read.
     `;
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
@@ -380,4 +384,34 @@ export const generatePhysicsImage = async (promptText: string): Promise<string> 
         console.error("Physics Image Gen Error", e);
         return '';
     }
+};
+
+export const generateBlog = async (topic: string, tone: string, length: string): Promise<string> => {
+  const prompt = `
+    ROLE: Professional Academic Blogger for Engineering Students.
+    TASK: Write an engaging, informative, and high-quality blog post on the topic: "${topic}".
+    TONE: ${tone} (e.g., informative, conversational, technical, or inspiring).
+    LENGTH: Approximately ${length} words.
+
+    REQUIREMENTS:
+    - Start with a catchy, SEO-friendly title.
+    - Use clear headings (H2, H3) to structure the content.
+    - Include an introduction that hooks the reader.
+    - Use bullet points for key takeaways or lists.
+    - Include a "Conclusion" or "Final Thoughts" section.
+    - Add a "Further Reading" section with 2-3 suggested topics or resources.
+    - The content should be specifically tailored for GTU (Gujarat Technological University) students or engineering students in general.
+    - Use Markdown for formatting.
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+    });
+    return response.text;
+  } catch (error) {
+    console.error("Error generating blog:", error);
+    throw new Error("Failed to generate blog post. Please check your API key.");
+  }
 };

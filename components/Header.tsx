@@ -1,6 +1,11 @@
 import React from 'react';
+import { Capability } from '../types';
 
-export const Header: React.FC = () => {
+interface HeaderProps {
+  setActiveTab?: (tab: Capability) => void;
+}
+
+export const Header: React.FC<HeaderProps> = ({ setActiveTab }) => {
   return (
     <header className="text-center mb-10 md:mb-12 relative group select-none">
       
@@ -22,6 +27,14 @@ export const Header: React.FC = () => {
             <h1 className="relative text-5xl md:text-7xl font-black tracking-tight text-white drop-shadow-md">
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-400 via-purple-400 to-cyan-400">GTU</span> Copilot
             </h1>
+
+            {/* BLOG Badge - Shifted location as per screenshot */}
+            <button 
+              onClick={() => setActiveTab?.(Capability.BLOG)}
+              className="absolute -top-6 -right-12 md:-top-8 md:-right-16 rotate-12 bg-gradient-to-br from-orange-500 to-red-600 text-white text-[10px] md:text-xs font-black px-2 py-1 rounded-md shadow-xl border border-white/20 hover:scale-110 transition-transform cursor-pointer animate-pulse"
+            >
+              BLOG
+            </button>
         </div>
       </div>
       

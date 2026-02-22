@@ -7,6 +7,7 @@ import { PptMaker } from './components/PptMaker';
 import { GtuExpert } from './components/GtuExpert';
 import { PhysicsModelGenerator } from './components/PhysicsModelGenerator';
 import { Humanizer } from './components/Humanizer';
+import { BlogGenerator } from './components/BlogGenerator';
 import { Capability } from './types';
 
 const App: React.FC = () => {
@@ -24,6 +25,8 @@ const App: React.FC = () => {
         return <GtuExpert />;
       case Capability.HUMANIZE:
         return <Humanizer />;
+      case Capability.BLOG:
+        return <BlogGenerator />;
       default:
         return <ReportGenerator />;
     }
@@ -46,8 +49,13 @@ const App: React.FC = () => {
           <div className="fixed top-[50%] left-[20%] w-[40%] h-[40%] bg-amber-500/10 rounded-full blur-[120px] pointer-events-none mix-blend-screen transition-opacity duration-1000"></div>
       )}
 
+      {/* Extra glow for Blog tab */}
+      {activeTab === Capability.BLOG && (
+          <div className="fixed bottom-[20%] left-[10%] w-[40%] h-[40%] bg-emerald-500/10 rounded-full blur-[120px] pointer-events-none mix-blend-screen transition-opacity duration-1000"></div>
+      )}
+
       <div className="container mx-auto p-4 md:p-8 max-w-5xl relative z-10">
-        <Header />
+        <Header setActiveTab={setActiveTab} />
         <Tabs activeTab={activeTab} setActiveTab={setActiveTab} />
         
         <main className="mt-8 transition-all duration-500 ease-in-out">

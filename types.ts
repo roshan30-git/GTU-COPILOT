@@ -5,4 +5,5 @@ export enum Capability {
   EXPERT = 'EXPERT',
   PHYSICS = 'PHYSICS',
   HUMANIZE = 'HUMANIZE',
+  BLOG = 'BLOG',
 }
