@@ -19,7 +19,20 @@ interface Slide {
 
 const SlideRenderer: React.FC<{ slide: Slide; index: number; total: number }> = ({ slide, index, total }) => {
     // Generate image URL using Pollinations
-    const bgImage = `https://image.pollinations.ai/prompt/${encodeURIComponent(slide.image_prompt + " minimal modern high quality")}?width=1280&height=720&nologo=true`;
+    const defaultImage = `https://image.pollinations.ai/prompt/${encodeURIComponent(slide.image_prompt + " minimal modern high quality")}?width=1280&height=720&nologo=true`;
+    const fallbackImage = `https://picsum.photos/seed/${encodeURIComponent(slide.title)}/1280/720`;
+    
+    const [imgSrc, setImgSrc] = useState(defaultImage);
+
+    React.useEffect(() => {
+        setImgSrc(defaultImage);
+    }, [defaultImage]);
+
+    const handleError = () => {
+        if (imgSrc !== fallbackImage) {
+            setImgSrc(fallbackImage);
+        }
+    };
 
     return (
         <div className="slide-container w-full aspect-video bg-indigo-950 text-white relative overflow-hidden flex flex-col shadow-2xl rounded-xl mb-8 break-after-page page-break-after-always">
@@ -34,7 +47,7 @@ const SlideRenderer: React.FC<{ slide: Slide; index: number; total: number }> = 
             {slide.layout === 'title' && (
                 <div className="w-full h-full flex flex-col justify-center items-center relative p-12 text-center z-10">
                     <div className="absolute inset-0 z-0">
-                         <img src={bgImage} className="w-full h-full object-cover opacity-40 blur-sm scale-110" alt="background" />
+                         <img src={imgSrc} onError={handleError} crossOrigin="anonymous" className="w-full h-full object-cover opacity-40 blur-sm scale-110" alt="background" />
                          <div className="absolute inset-0 bg-gradient-to-t from-indigo-950 via-indigo-950/80 to-transparent"></div>
                     </div>
                     <div className="relative z-10 animate-[fadeIn_0.5s_ease-out]">
@@ -64,7 +77,7 @@ const SlideRenderer: React.FC<{ slide: Slide; index: number; total: number }> = 
                         </ul>
                     </div>
                     <div className="w-1/2 h-full relative">
-                        <img src={bgImage} className="w-full h-full object-cover" alt="slide visual" />
+                        <img src={imgSrc} onError={handleError} crossOrigin="anonymous" className="w-full h-full object-cover" alt="slide visual" />
                         <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-transparent to-transparent"></div>
                     </div>
                 </div>
@@ -85,7 +98,7 @@ const SlideRenderer: React.FC<{ slide: Slide; index: number; total: number }> = 
                         </ul>
                     </div>
                     <div className="w-1/2 h-full relative">
-                        <img src={bgImage} className="w-full h-full object-cover" alt="slide visual" />
+                        <img src={imgSrc} onError={handleError} crossOrigin="anonymous" className="w-full h-full object-cover" alt="slide visual" />
                          <div className="absolute inset-0 bg-gradient-to-l from-slate-900 via-transparent to-transparent"></div>
                     </div>
                 </div>
@@ -95,7 +108,7 @@ const SlideRenderer: React.FC<{ slide: Slide; index: number; total: number }> = 
             {(slide.layout === 'center' || slide.layout === 'bullet_list') && (
                 <div className="w-full h-full flex flex-col relative z-10 p-12">
                      <div className="absolute inset-0 z-0">
-                         <img src={bgImage} className="w-full h-full object-cover opacity-20 grayscale mix-blend-overlay" alt="bg" />
+                         <img src={imgSrc} onError={handleError} crossOrigin="anonymous" className="w-full h-full object-cover opacity-20 grayscale mix-blend-overlay" alt="bg" />
                     </div>
                     <div className="relative z-10 h-full flex flex-col">
                         <h2 className="text-4xl font-black text-center text-white mb-10 pb-4 border-b border-white/10 uppercase tracking-widest">{slide.title}</h2>

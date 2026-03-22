@@ -32,36 +32,46 @@ export const generateReport = async (subject: string, topic: string, hours: stri
 
     1. Core Task:
     Prepare a 2–5 page formal learning report written in first-person, as if the student is submitting it to a sir/mam.
-    The report must sound human, natural, and genuine — like a real student reporting what they personally studied.
-    The report must start with an introduction stating the total study time and videos used (with URLs).
-    Then include structured parts (e.g., Part 1, Part 2, etc.) describing what the student learned in each study session, including key concepts, formulas, examples, or applications discussed.
-    End with a short reflection/summary of what was learned and how it helped understanding the topic.
-    Include a “References” section listing all video titles and links.
+    The report MUST use Markdown formatting for structure to allow rich document generation.
+    
+    Structure the report exactly like this:
+    # INTRODUCTION
+    (Write the introduction here, mentioning the total study time of ${hours} hours and videos used).
+    
+    ## PART 1: [Title of Part 1]
+    (Content for part 1)
+    ### [Subtopic]
+    (Content)
+    (Include at least one Markdown table in the report summarizing key concepts or comparing items. Example:
+    | Concept | Description |
+    |---|---|
+    | Item 1 | Desc 1 |
+    )
+
+    ## PART 2: [Title of Part 2]
+    (Content for part 2)
+
+    # REFLECTION AND SUMMARY
+    (Short reflection)
+
+    # REFERENCES
+    (List of video titles and links: ${videoContext})
 
     2. Formatting:
-    Use clean paragraph structure, headings, and bullet points where needed.
-    Write in plain text or Markdown ready for .docx export.
-    Write mathematical expressions in normal readable form, not LaTeX or code blocks.
-    Example: write f(x) = x² + 2x, not \\(f(x)=x^2+2x\\) or $$f(x)=x^2+2x$$.
-    Use superscripts, subscripts, and symbols naturally (e.g., x², y₁, sinθ).
+    Use Markdown headings (# for main sections like INTRODUCTION, ## for PARTs, ### for subtopics).
+    Use Markdown tables for structured data.
+    Use bullet points (- or *) where appropriate.
+    Write mathematical expressions in normal readable form (e.g., f(x) = x² + 2x).
 
     3. Input Parameters:
     Subject: ${subject}
     Topic: ${topic}
     Total study hours: ${hours}
-    Video References: ${videoContext}
 
     4. Tone and Style:
     Formal yet personal (student tone).
     Avoid teacher or third-person explanations.
-    No code blocks, no LaTeX, no markdown symbols like $, \\, or **.
     Keep the language concise, clear, and sincere.
-
-    5. Output Goal:
-    The report should feel fully human-written and submission-ready for academic purposes.
-    Deliver output suitable for direct export or print submission.
-
-    Your identity: an AI system specialized in producing clean, human-style study reports for GTU students — with readable formulas, formal tone, and clear structure.
 
     Now, generate the report.
   `;
@@ -384,34 +394,4 @@ export const generatePhysicsImage = async (promptText: string): Promise<string> 
         console.error("Physics Image Gen Error", e);
         return '';
     }
-};
-
-export const generateBlog = async (topic: string, tone: string, length: string): Promise<string> => {
-  const prompt = `
-    ROLE: Professional Academic Blogger for Engineering Students.
-    TASK: Write an engaging, informative, and high-quality blog post on the topic: "${topic}".
-    TONE: ${tone} (e.g., informative, conversational, technical, or inspiring).
-    LENGTH: Approximately ${length} words.
-
-    REQUIREMENTS:
-    - Start with a catchy, SEO-friendly title.
-    - Use clear headings (H2, H3) to structure the content.
-    - Include an introduction that hooks the reader.
-    - Use bullet points for key takeaways or lists.
-    - Include a "Conclusion" or "Final Thoughts" section.
-    - Add a "Further Reading" section with 2-3 suggested topics or resources.
-    - The content should be specifically tailored for GTU (Gujarat Technological University) students or engineering students in general.
-    - Use Markdown for formatting.
-  `;
-
-  try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-    });
-    return response.text;
-  } catch (error) {
-    console.error("Error generating blog:", error);
-    throw new Error("Failed to generate blog post. Please check your API key.");
-  }
 };

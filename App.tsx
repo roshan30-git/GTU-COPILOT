@@ -7,7 +7,7 @@ import { PptMaker } from './components/PptMaker';
 import { GtuExpert } from './components/GtuExpert';
 import { PhysicsModelGenerator } from './components/PhysicsModelGenerator';
 import { Humanizer } from './components/Humanizer';
-import { BlogGenerator } from './components/BlogGenerator';
+import { Blog } from './components/Blog';
 import { Capability } from './types';
 
 const App: React.FC = () => {
@@ -26,7 +26,7 @@ const App: React.FC = () => {
       case Capability.HUMANIZE:
         return <Humanizer />;
       case Capability.BLOG:
-        return <BlogGenerator />;
+        return <Blog />;
       default:
         return <ReportGenerator />;
     }

@@ -4,7 +4,7 @@ import { generateReport, humanizeText } from '../services/geminiService';
 import { ClipboardIcon } from './icons/ClipboardIcon';
 import { DownloadIcon } from './icons/DownloadIcon';
 import { HumanizeIcon } from './icons/HumanizeIcon';
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Header, Footer, Table, TableRow, TableCell, BorderStyle, WidthType, VerticalAlign, PageNumber } from 'docx';
 import saveAs from 'file-saver';
 
 // Helper to sanitize text for XML (removes control characters that break docx)
@@ -66,67 +66,348 @@ export const ReportGenerator: React.FC = () => {
     if (!report) return;
 
     const lines = report.split('\n');
-    const docChildren: Paragraph[] = [];
+    const docChildren: any[] = [];
 
-    // Add Main Title
-    docChildren.push(new Paragraph({
-        text: sanitizeText((subject + " - " + topic).toUpperCase()),
-        heading: HeadingLevel.HEADING_1,
-        alignment: AlignmentType.CENTER,
-        spacing: { after: 300 }
-    }));
+    const parseTextToRuns = (text: string) => {
+        const parts = text.split(/(\*\*.*?\*\*)/g);
+        return parts.map(part => {
+            const cleanPart = sanitizeText(part);
+            if (part.startsWith('**') && part.endsWith('**')) {
+                return new TextRun({ text: cleanPart.slice(2, -2), bold: true, font: "Arial", size: 22 });
+            }
+            return new TextRun({ text: cleanPart, font: "Arial", size: 22 });
+        });
+    };
+
+    // --- COVER PAGE ---
+    docChildren.push(
+        new Paragraph({
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 1400, after: 400 },
+            children: [new TextRun({ text: "G T U   S T U D Y   R E P O R T", color: "2B579A", bold: true, size: 24, font: "Arial" })]
+        })
+    );
+    docChildren.push(
+        new Paragraph({
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 200 },
+            children: [new TextRun({ text: sanitizeText(subject.toUpperCase()), color: "1A3668", bold: true, size: 48, font: "Arial" })]
+        })
+    );
+    docChildren.push(
+        new Paragraph({
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 800 },
+            children: [new TextRun({ text: sanitizeText(topic), color: "2B579A", italics: true, size: 32, font: "Arial" })]
+        })
+    );
+
+    // Metadata Table
+    docChildren.push(
+        new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            borders: {
+                top: { style: BorderStyle.SINGLE, size: 4, color: "D9D9D9" },
+                bottom: { style: BorderStyle.SINGLE, size: 4, color: "D9D9D9" },
+                left: { style: BorderStyle.SINGLE, size: 4, color: "D9D9D9" },
+                right: { style: BorderStyle.SINGLE, size: 4, color: "D9D9D9" },
+                insideHorizontal: { style: BorderStyle.SINGLE, size: 4, color: "D9D9D9" },
+                insideVertical: { style: BorderStyle.SINGLE, size: 4, color: "D9D9D9" },
+            },
+            rows: [
+                new TableRow({ children: [
+                    new TableCell({ width: { size: 30, type: WidthType.PERCENTAGE }, shading: { fill: "E8F0FE" }, margins: { top: 100, bottom: 100, left: 150, right: 150 }, children: [new Paragraph({ children: [new TextRun({ text: "Subject", bold: true, color: "1A3668", font: "Arial", size: 22 })] })] }),
+                    new TableCell({ width: { size: 70, type: WidthType.PERCENTAGE }, margins: { top: 100, bottom: 100, left: 150, right: 150 }, children: [new Paragraph({ children: [new TextRun({ text: sanitizeText(subject), font: "Arial", size: 22 })] })] })
+                ]}),
+                new TableRow({ children: [
+                    new TableCell({ width: { size: 30, type: WidthType.PERCENTAGE }, shading: { fill: "E8F0FE" }, margins: { top: 100, bottom: 100, left: 150, right: 150 }, children: [new Paragraph({ children: [new TextRun({ text: "Topic", bold: true, color: "1A3668", font: "Arial", size: 22 })] })] }),
+                    new TableCell({ width: { size: 70, type: WidthType.PERCENTAGE }, margins: { top: 100, bottom: 100, left: 150, right: 150 }, children: [new Paragraph({ children: [new TextRun({ text: sanitizeText(topic), font: "Arial", size: 22 })] })] })
+                ]}),
+                new TableRow({ children: [
+                    new TableCell({ width: { size: 30, type: WidthType.PERCENTAGE }, shading: { fill: "E8F0FE" }, margins: { top: 100, bottom: 100, left: 150, right: 150 }, children: [new Paragraph({ children: [new TextRun({ text: "Total Study Hours", bold: true, color: "1A3668", font: "Arial", size: 22 })] })] }),
+                    new TableCell({ width: { size: 70, type: WidthType.PERCENTAGE }, margins: { top: 100, bottom: 100, left: 150, right: 150 }, children: [new Paragraph({ children: [new TextRun({ text: `${sanitizeText(hours)} Hours`, font: "Arial", size: 22 })] })] })
+                ]}),
+                new TableRow({ children: [
+                    new TableCell({ width: { size: 30, type: WidthType.PERCENTAGE }, shading: { fill: "E8F0FE" }, margins: { top: 100, bottom: 100, left: 150, right: 150 }, children: [new Paragraph({ children: [new TextRun({ text: "Report Type", bold: true, color: "1A3668", font: "Arial", size: 22 })] })] }),
+                    new TableCell({ width: { size: 70, type: WidthType.PERCENTAGE }, margins: { top: 100, bottom: 100, left: 150, right: 150 }, children: [new Paragraph({ children: [new TextRun({ text: "Self-Study Summary Report", font: "Arial", size: 22 })] })] })
+                ]}),
+                new TableRow({ children: [
+                    new TableCell({ width: { size: 30, type: WidthType.PERCENTAGE }, shading: { fill: "E8F0FE" }, margins: { top: 100, bottom: 100, left: 150, right: 150 }, children: [new Paragraph({ children: [new TextRun({ text: "Institution", bold: true, color: "1A3668", font: "Arial", size: 22 })] })] }),
+                    new TableCell({ width: { size: 70, type: WidthType.PERCENTAGE }, margins: { top: 100, bottom: 100, left: 150, right: 150 }, children: [new Paragraph({ children: [new TextRun({ text: "Gujarat Technological University (GTU)", font: "Arial", size: 22 })] })] })
+                ]})
+            ]
+        })
+    );
+
+    docChildren.push(
+        new Paragraph({
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 800 },
+            children: [new TextRun({ text: "Submitted by a GTU Student", color: "7F7F7F", font: "Arial", size: 22 })],
+            pageBreakBefore: false
+        })
+    );
+
+    docChildren.push(new Paragraph({ pageBreakBefore: true }));
+
+    // --- CONTENT PARSING ---
+    let inTable = false;
+    let tableData: string[][] = [];
+
+    const flushTable = () => {
+        if (tableData.length === 0) return;
+        
+        const filteredData = tableData.filter(row => !row[0].match(/^[-:|\s]+$/));
+        
+        if (filteredData.length === 0) {
+            tableData = [];
+            return;
+        }
+
+        const rows = filteredData.map((rowData, rowIndex) => {
+            const isHeader = rowIndex === 0;
+            return new TableRow({
+                children: rowData.map((cellText, colIndex) => {
+                    let shadingFill = isHeader ? "1A3668" : (rowIndex % 2 === 0 ? "FFFFFF" : "E8F0FE");
+                    let textColor = isHeader ? "FFFFFF" : "000000";
+                    
+                    if (isHeader && cellText.toLowerCase().includes("pitfall")) {
+                        shadingFill = "E65100";
+                    } else if (!isHeader && filteredData[0][0].toLowerCase().includes("pitfall")) {
+                        shadingFill = rowIndex % 2 === 0 ? "FFFFFF" : "FFF3E0";
+                    }
+
+                    return new TableCell({
+                        shading: { fill: shadingFill },
+                        margins: { top: 100, bottom: 100, left: 150, right: 150 },
+                        verticalAlign: VerticalAlign.CENTER,
+                        children: [
+                            new Paragraph({
+                                children: [new TextRun({ text: sanitizeText(cellText.trim()), bold: isHeader, color: textColor, font: "Arial", size: 20 })]
+                            })
+                        ]
+                    });
+                })
+            });
+        });
+
+        docChildren.push(
+            new Table({
+                width: { size: 100, type: WidthType.PERCENTAGE },
+                borders: {
+                    top: { style: BorderStyle.SINGLE, size: 4, color: "D9D9D9" },
+                    bottom: { style: BorderStyle.SINGLE, size: 4, color: "D9D9D9" },
+                    left: { style: BorderStyle.SINGLE, size: 4, color: "D9D9D9" },
+                    right: { style: BorderStyle.SINGLE, size: 4, color: "D9D9D9" },
+                    insideHorizontal: { style: BorderStyle.SINGLE, size: 4, color: "D9D9D9" },
+                    insideVertical: { style: BorderStyle.SINGLE, size: 4, color: "D9D9D9" },
+                },
+                rows: rows
+            })
+        );
+        docChildren.push(new Paragraph({ spacing: { after: 200 } }));
+        tableData = [];
+    };
 
     lines.forEach(line => {
         const trimmed = line.trim();
-        if (!trimmed) return;
-
-        // Detect Headers (e.g., "Introduction", "Part 1", "Conclusion" or all caps headings)
-        const isHeader = /^(Introduction|Part \d+|Conclusion|References|Summary)$/i.test(trimmed) || 
-                         (trimmed === trimmed.toUpperCase() && trimmed.length > 3 && trimmed.length < 50 && !trimmed.includes('.'));
-
-        if (isHeader) {
-            docChildren.push(new Paragraph({
-                text: sanitizeText(trimmed),
-                heading: HeadingLevel.HEADING_2,
-                spacing: { before: 200, after: 100 }
-            }));
-        } else if (trimmed.startsWith('- ') || trimmed.startsWith('• ') || trimmed.startsWith('* ')) {
-            // List items
-             const content = trimmed.replace(/^[-•*]\s*/, '');
-             const parts = content.split(/(\*\*.*?\*\*)/g);
-             const textRuns = parts.map(part => {
-                const cleanPart = sanitizeText(part);
-                if (part.startsWith('**') && part.endsWith('**')) {
-                    return new TextRun({ text: cleanPart.slice(2, -2), bold: true });
-                }
-                return new TextRun({ text: cleanPart });
-             });
-
-             docChildren.push(new Paragraph({
-                children: textRuns,
-                bullet: { level: 0 }
-            }));
-        } else {
-            // Standard Paragraphs with bold parsing
-            const parts = trimmed.split(/(\*\*.*?\*\*)/g);
-            const textRuns = parts.map(part => {
-                const cleanPart = sanitizeText(part);
-                if (part.startsWith('**') && part.endsWith('**')) {
-                    return new TextRun({ text: cleanPart.slice(2, -2), bold: true });
-                }
-                return new TextRun({ text: cleanPart });
-            });
-
-            docChildren.push(new Paragraph({
-                children: textRuns,
-                spacing: { after: 100 }
-            }));
+        
+        if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+            inTable = true;
+            const cells = trimmed.split('|').slice(1, -1).map(c => c.trim());
+            tableData.push(cells);
+            return;
+        } else if (inTable) {
+            flushTable();
+            inTable = false;
         }
+
+        if (!trimmed) {
+            docChildren.push(new Paragraph({ spacing: { after: 100 } }));
+            return;
+        }
+
+        if (trimmed.startsWith('# ')) {
+            const text = sanitizeText(trimmed.substring(2).toUpperCase());
+            docChildren.push(
+                new Paragraph({
+                    spacing: { before: 400, after: 200 },
+                    border: {
+                        bottom: { color: "1A3668", space: 1, style: BorderStyle.SINGLE, size: 12 }
+                    },
+                    children: [new TextRun({ text: text, color: "1A3668", bold: true, size: 28, font: "Arial" })]
+                })
+            );
+        } else if (trimmed.startsWith('## PART')) {
+            const match = trimmed.match(/## (PART \d+):\s*(.*)/i);
+            if (match) {
+                const partNum = match[1].toUpperCase();
+                const partTitle = match[2];
+                
+                docChildren.push(
+                    new Table({
+                        width: { size: 100, type: WidthType.PERCENTAGE },
+                        borders: {
+                            top: { style: BorderStyle.NONE, size: 0, color: "auto" },
+                            bottom: { style: BorderStyle.NONE, size: 0, color: "auto" },
+                            left: { style: BorderStyle.NONE, size: 0, color: "auto" },
+                            right: { style: BorderStyle.NONE, size: 0, color: "auto" },
+                            insideHorizontal: { style: BorderStyle.NONE, size: 0, color: "auto" },
+                            insideVertical: { style: BorderStyle.NONE, size: 0, color: "auto" },
+                        },
+                        rows: [
+                            new TableRow({
+                                children: [
+                                    new TableCell({
+                                        width: { size: 15, type: WidthType.PERCENTAGE },
+                                        shading: { fill: "1A3668" },
+                                        verticalAlign: VerticalAlign.CENTER,
+                                        margins: { top: 150, bottom: 150, left: 100, right: 100 },
+                                        children: [
+                                            new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: partNum.split(' ')[0], color: "FFFFFF", size: 16, font: "Arial" })] }),
+                                            new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: partNum.split(' ')[1], color: "FFFFFF", bold: true, size: 36, font: "Arial" })] })
+                                        ]
+                                    }),
+                                    new TableCell({
+                                        width: { size: 85, type: WidthType.PERCENTAGE },
+                                        shading: { fill: "2B579A" },
+                                        verticalAlign: VerticalAlign.CENTER,
+                                        margins: { top: 150, bottom: 150, left: 200, right: 200 },
+                                        children: [
+                                            new Paragraph({ children: [new TextRun({ text: sanitizeText(partTitle), color: "FFFFFF", bold: true, size: 28, font: "Arial" })] })
+                                        ]
+                                    })
+                                ]
+                            })
+                        ]
+                    })
+                );
+                docChildren.push(new Paragraph({ spacing: { after: 200 } }));
+            } else {
+                docChildren.push(
+                    new Paragraph({
+                        spacing: { before: 300, after: 150 },
+                        children: [new TextRun({ text: sanitizeText(trimmed.substring(3)), color: "2B579A", bold: true, size: 26, font: "Arial" })]
+                    })
+                );
+            }
+        } else if (trimmed.startsWith('## ')) {
+            docChildren.push(
+                new Paragraph({
+                    spacing: { before: 300, after: 150 },
+                    children: [new TextRun({ text: sanitizeText(trimmed.substring(3)), color: "2B579A", bold: true, size: 26, font: "Arial" })]
+                })
+            );
+        } else if (trimmed.startsWith('### ')) {
+            docChildren.push(
+                new Paragraph({
+                    spacing: { before: 200, after: 100 },
+                    children: [new TextRun({ text: sanitizeText(trimmed.substring(4)), color: "2B579A", bold: true, size: 24, font: "Arial" })]
+                })
+            );
+        } else if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+            const content = trimmed.substring(2);
+            docChildren.push(
+                new Paragraph({
+                    children: parseTextToRuns(content),
+                    bullet: { level: 0 },
+                    spacing: { after: 100 }
+                })
+            );
+        } else {
+            docChildren.push(
+                new Paragraph({
+                    children: parseTextToRuns(trimmed),
+                    spacing: { after: 150 },
+                    alignment: AlignmentType.JUSTIFIED
+                })
+            );
+        }
+    });
+
+    if (inTable) flushTable();
+
+    const header = new Header({
+        children: [
+            new Table({
+                width: { size: 100, type: WidthType.PERCENTAGE },
+                borders: {
+                    top: { style: BorderStyle.NONE, size: 0, color: "auto" },
+                    bottom: { style: BorderStyle.SINGLE, size: 12, color: "2B579A" },
+                    left: { style: BorderStyle.NONE, size: 0, color: "auto" },
+                    right: { style: BorderStyle.NONE, size: 0, color: "auto" },
+                    insideHorizontal: { style: BorderStyle.NONE, size: 0, color: "auto" },
+                    insideVertical: { style: BorderStyle.NONE, size: 0, color: "auto" },
+                },
+                rows: [
+                    new TableRow({
+                        children: [
+                            new TableCell({
+                                children: [new Paragraph({ children: [new TextRun({ text: sanitizeText(subject), color: "7F7F7F", font: "Arial", size: 18 })] })],
+                                borders: { top: {style: BorderStyle.NONE, size: 0, color: "auto"}, bottom: {style: BorderStyle.NONE, size: 0, color: "auto"}, left: {style: BorderStyle.NONE, size: 0, color: "auto"}, right: {style: BorderStyle.NONE, size: 0, color: "auto"} }
+                            }),
+                            new TableCell({
+                                children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [new TextRun({ text: "Study Report", color: "2B579A", font: "Arial", size: 18 })] })],
+                                borders: { top: {style: BorderStyle.NONE, size: 0, color: "auto"}, bottom: {style: BorderStyle.NONE, size: 0, color: "auto"}, left: {style: BorderStyle.NONE, size: 0, color: "auto"}, right: {style: BorderStyle.NONE, size: 0, color: "auto"} }
+                            })
+                        ]
+                    })
+                ]
+            })
+        ]
+    });
+
+    const footer = new Footer({
+        children: [
+            new Table({
+                width: { size: 100, type: WidthType.PERCENTAGE },
+                borders: {
+                    top: { style: BorderStyle.SINGLE, size: 6, color: "E8F0FE" },
+                    bottom: { style: BorderStyle.NONE, size: 0, color: "auto" },
+                    left: { style: BorderStyle.NONE, size: 0, color: "auto" },
+                    right: { style: BorderStyle.NONE, size: 0, color: "auto" },
+                    insideHorizontal: { style: BorderStyle.NONE, size: 0, color: "auto" },
+                    insideVertical: { style: BorderStyle.NONE, size: 0, color: "auto" },
+                },
+                rows: [
+                    new TableRow({
+                        children: [
+                            new TableCell({
+                                children: [new Paragraph({ children: [new TextRun({ text: `GTU — ${sanitizeText(topic)}`, color: "7F7F7F", font: "Arial", size: 18 })] })],
+                                borders: { top: {style: BorderStyle.NONE, size: 0, color: "auto"}, bottom: {style: BorderStyle.NONE, size: 0, color: "auto"}, left: {style: BorderStyle.NONE, size: 0, color: "auto"}, right: {style: BorderStyle.NONE, size: 0, color: "auto"} }
+                            }),
+                            new TableCell({
+                                children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [
+                                    new TextRun({ text: "Page ", color: "7F7F7F", font: "Arial", size: 18 }),
+                                    new TextRun({ children: [PageNumber.CURRENT], color: "2B579A", font: "Arial", size: 18 })
+                                ] })],
+                                borders: { top: {style: BorderStyle.NONE, size: 0, color: "auto"}, bottom: {style: BorderStyle.NONE, size: 0, color: "auto"}, left: {style: BorderStyle.NONE, size: 0, color: "auto"}, right: {style: BorderStyle.NONE, size: 0, color: "auto"} }
+                            })
+                        ]
+                    })
+                ]
+            })
+        ]
     });
 
     const doc = new Document({
         sections: [{
-            properties: {},
+            properties: {
+                page: {
+                    margin: {
+                        top: 1000,
+                        right: 1000,
+                        bottom: 1000,
+                        left: 1000,
+                    },
+                },
+            },
+            headers: {
+                default: header,
+            },
+            footers: {
+                default: footer,
+            },
             children: docChildren
         }]
     });
