@@ -58,6 +58,7 @@ const SimpleMarkdown: React.FC<{ text: string }> = ({ text }) => {
 
 export const GtuExpert: React.FC = () => {
     const [query, setQuery] = useState('');
+    const [templateType, setTemplateType] = useState('Standard');
     const [answer, setAnswer] = useState('');
     const [imageUrl, setImageUrl] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -95,7 +96,7 @@ export const GtuExpert: React.FC = () => {
 
         try {
             // 1. Get the text answer first
-            const result = await getExpertAnswer(query);
+            const result = await getExpertAnswer(query, templateType);
             
             // 2. Parse the result to separate text and visual prompt
             // Support both old and new split markers just in case
@@ -197,6 +198,26 @@ export const GtuExpert: React.FC = () => {
                             className="w-full bg-indigo-950/60 border-2 border-indigo-500/30 rounded-2xl p-4 text-white placeholder-indigo-400/70 focus:ring-4 focus:ring-emerald-500/20 focus:border-emerald-400 transition-all outline-none resize-none font-medium leading-relaxed" 
                             placeholder="e.g. What is the difference between BFS and DFS? 🤔"
                         ></textarea>
+                    </div>
+
+                    <div className="space-y-2 group/input">
+                      <label className="block text-sm font-bold text-indigo-300 uppercase tracking-wider ml-2">Explanation Style</label>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        {['Standard', "Explain Like I'm 5", 'Technical Breakdown', 'Exam-style Answer'].map((type) => (
+                          <button
+                            key={type}
+                            type="button"
+                            onClick={() => setTemplateType(type)}
+                            className={`p-3 rounded-xl border-2 transition-all font-bold text-xs ${
+                              templateType === type 
+                                ? 'border-emerald-500 bg-emerald-500/20 text-white' 
+                                : 'border-indigo-500/30 bg-indigo-950/40 text-indigo-300 hover:border-indigo-500/50'
+                            }`}
+                          >
+                            {type}
+                          </button>
+                        ))}
+                      </div>
                     </div>
 
                     <button 

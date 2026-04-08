@@ -4,7 +4,7 @@ import { Capability } from '../types';
 import { ReportIcon } from './icons/ReportIcon';
 import { PresentationIcon } from './icons/PresentationIcon';
 import { SparklesIcon } from './icons/SparklesIcon';
-import { AtomIcon } from './icons/AtomIcon';
+import { CaseStudyIcon } from './icons/CaseStudyIcon';
 import { HumanizeIcon } from './icons/HumanizeIcon';
 import { BlogIcon } from './icons/BlogIcon';
 
@@ -29,9 +29,9 @@ const tabConfig = [
     shadow: 'shadow-amber-500/40' 
   },
   { 
-    id: Capability.PHYSICS, 
-    label: 'Physics Model', 
-    icon: <AtomIcon />, 
+    id: Capability.CASE_STUDY, 
+    label: 'Case Study', 
+    icon: <CaseStudyIcon />, 
     color: 'from-blue-500 to-indigo-600', 
     shadow: 'shadow-blue-500/40' 
   },

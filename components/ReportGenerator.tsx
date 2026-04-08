@@ -4,8 +4,12 @@ import { generateReport, humanizeText } from '../services/geminiService';
 import { ClipboardIcon } from './icons/ClipboardIcon';
 import { DownloadIcon } from './icons/DownloadIcon';
 import { HumanizeIcon } from './icons/HumanizeIcon';
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Header, Footer, Table, TableRow, TableCell, BorderStyle, WidthType, VerticalAlign, PageNumber } from 'docx';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Header, Footer, Table, TableRow, TableCell, BorderStyle, WidthType, VerticalAlign, PageNumber, ImageRun } from 'docx';
 import saveAs from 'file-saver';
+import ReactMarkdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import 'katex/dist/katex.min.css';
 
 // Helper to sanitize text for XML (removes control characters that break docx)
 const sanitizeText = (text: string) => {
@@ -13,14 +17,44 @@ const sanitizeText = (text: string) => {
     return text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
 };
 
+const getMathImage = (latex: string, isInline: boolean): Promise<{buffer: ArrayBuffer, width: number, height: number} | null> => {
+    return new Promise((resolve) => {
+        const cleanLatex = latex.trim();
+        const url = `https://latex.codecogs.com/png.image?\\dpi{300}\\bg_white\\${isInline ? '\\inline ' : '\\LARGE '}${encodeURIComponent(cleanLatex)}`;
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return resolve(null);
+            ctx.drawImage(img, 0, 0);
+            canvas.toBlob(async (blob) => {
+                if (!blob) return resolve(null);
+                const buffer = await blob.arrayBuffer();
+                resolve({ buffer, width: Math.round(img.width / 3), height: Math.round(img.height / 3) });
+            }, 'image/png');
+        };
+        img.onerror = (e) => {
+            console.error("Math image load error", e);
+            resolve(null);
+        };
+        img.src = url;
+    });
+};
+
 export const ReportGenerator: React.FC = () => {
   const [subject, setSubject] = useState('');
   const [topic, setTopic] = useState('');
   const [hours, setHours] = useState('');
+  const [templateType, setTemplateType] = useState('Standard Study Report');
+  const [uploadedImages, setUploadedImages] = useState<File[]>([]);
   const [context, setContext] = useState('');
   const [report, setReport] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isHumanizing, setIsHumanizing] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -34,7 +68,7 @@ export const ReportGenerator: React.FC = () => {
     setReport('');
 
     try {
-      const result = await generateReport(subject, topic, hours, context);
+      const result = await generateReport(subject, topic, hours, context, templateType);
       setReport(result);
     } catch (err: any) {
       setError(err.message);
@@ -64,133 +98,75 @@ export const ReportGenerator: React.FC = () => {
   
   const handleDownload = async () => {
     if (!report) return;
+    setIsDownloading(true);
 
-    const lines = report.split('\n');
-    const docChildren: any[] = [];
+    try {
+        const lines = report.split('\n');
+        const docChildren: any[] = [];
 
-    const parseTextToRuns = (text: string) => {
-        const parts = text.split(/(\*\*.*?\*\*)/g);
-        return parts.map(part => {
-            const cleanPart = sanitizeText(part);
-            if (part.startsWith('**') && part.endsWith('**')) {
-                return new TextRun({ text: cleanPart.slice(2, -2), bold: true, font: "Arial", size: 22 });
-            }
-            return new TextRun({ text: cleanPart, font: "Arial", size: 22 });
-        });
-    };
-
-    // --- COVER PAGE ---
-    docChildren.push(
-        new Paragraph({
-            alignment: AlignmentType.CENTER,
-            spacing: { before: 1400, after: 400 },
-            children: [new TextRun({ text: "G T U   S T U D Y   R E P O R T", color: "2B579A", bold: true, size: 24, font: "Arial" })]
-        })
-    );
-    docChildren.push(
-        new Paragraph({
-            alignment: AlignmentType.CENTER,
-            spacing: { after: 200 },
-            children: [new TextRun({ text: sanitizeText(subject.toUpperCase()), color: "1A3668", bold: true, size: 48, font: "Arial" })]
-        })
-    );
-    docChildren.push(
-        new Paragraph({
-            alignment: AlignmentType.CENTER,
-            spacing: { after: 800 },
-            children: [new TextRun({ text: sanitizeText(topic), color: "2B579A", italics: true, size: 32, font: "Arial" })]
-        })
-    );
-
-    // Metadata Table
-    docChildren.push(
-        new Table({
-            width: { size: 100, type: WidthType.PERCENTAGE },
-            borders: {
-                top: { style: BorderStyle.SINGLE, size: 4, color: "D9D9D9" },
-                bottom: { style: BorderStyle.SINGLE, size: 4, color: "D9D9D9" },
-                left: { style: BorderStyle.SINGLE, size: 4, color: "D9D9D9" },
-                right: { style: BorderStyle.SINGLE, size: 4, color: "D9D9D9" },
-                insideHorizontal: { style: BorderStyle.SINGLE, size: 4, color: "D9D9D9" },
-                insideVertical: { style: BorderStyle.SINGLE, size: 4, color: "D9D9D9" },
-            },
-            rows: [
-                new TableRow({ children: [
-                    new TableCell({ width: { size: 30, type: WidthType.PERCENTAGE }, shading: { fill: "E8F0FE" }, margins: { top: 100, bottom: 100, left: 150, right: 150 }, children: [new Paragraph({ children: [new TextRun({ text: "Subject", bold: true, color: "1A3668", font: "Arial", size: 22 })] })] }),
-                    new TableCell({ width: { size: 70, type: WidthType.PERCENTAGE }, margins: { top: 100, bottom: 100, left: 150, right: 150 }, children: [new Paragraph({ children: [new TextRun({ text: sanitizeText(subject), font: "Arial", size: 22 })] })] })
-                ]}),
-                new TableRow({ children: [
-                    new TableCell({ width: { size: 30, type: WidthType.PERCENTAGE }, shading: { fill: "E8F0FE" }, margins: { top: 100, bottom: 100, left: 150, right: 150 }, children: [new Paragraph({ children: [new TextRun({ text: "Topic", bold: true, color: "1A3668", font: "Arial", size: 22 })] })] }),
-                    new TableCell({ width: { size: 70, type: WidthType.PERCENTAGE }, margins: { top: 100, bottom: 100, left: 150, right: 150 }, children: [new Paragraph({ children: [new TextRun({ text: sanitizeText(topic), font: "Arial", size: 22 })] })] })
-                ]}),
-                new TableRow({ children: [
-                    new TableCell({ width: { size: 30, type: WidthType.PERCENTAGE }, shading: { fill: "E8F0FE" }, margins: { top: 100, bottom: 100, left: 150, right: 150 }, children: [new Paragraph({ children: [new TextRun({ text: "Total Study Hours", bold: true, color: "1A3668", font: "Arial", size: 22 })] })] }),
-                    new TableCell({ width: { size: 70, type: WidthType.PERCENTAGE }, margins: { top: 100, bottom: 100, left: 150, right: 150 }, children: [new Paragraph({ children: [new TextRun({ text: `${sanitizeText(hours)} Hours`, font: "Arial", size: 22 })] })] })
-                ]}),
-                new TableRow({ children: [
-                    new TableCell({ width: { size: 30, type: WidthType.PERCENTAGE }, shading: { fill: "E8F0FE" }, margins: { top: 100, bottom: 100, left: 150, right: 150 }, children: [new Paragraph({ children: [new TextRun({ text: "Report Type", bold: true, color: "1A3668", font: "Arial", size: 22 })] })] }),
-                    new TableCell({ width: { size: 70, type: WidthType.PERCENTAGE }, margins: { top: 100, bottom: 100, left: 150, right: 150 }, children: [new Paragraph({ children: [new TextRun({ text: "Self-Study Summary Report", font: "Arial", size: 22 })] })] })
-                ]}),
-                new TableRow({ children: [
-                    new TableCell({ width: { size: 30, type: WidthType.PERCENTAGE }, shading: { fill: "E8F0FE" }, margins: { top: 100, bottom: 100, left: 150, right: 150 }, children: [new Paragraph({ children: [new TextRun({ text: "Institution", bold: true, color: "1A3668", font: "Arial", size: 22 })] })] }),
-                    new TableCell({ width: { size: 70, type: WidthType.PERCENTAGE }, margins: { top: 100, bottom: 100, left: 150, right: 150 }, children: [new Paragraph({ children: [new TextRun({ text: "Gujarat Technological University (GTU)", font: "Arial", size: 22 })] })] })
-                ]})
-            ]
-        })
-    );
-
-    docChildren.push(
-        new Paragraph({
-            alignment: AlignmentType.CENTER,
-            spacing: { before: 800 },
-            children: [new TextRun({ text: "Submitted by a GTU Student", color: "7F7F7F", font: "Arial", size: 22 })],
-            pageBreakBefore: false
-        })
-    );
-
-    docChildren.push(new Paragraph({ pageBreakBefore: true }));
-
-    // --- CONTENT PARSING ---
-    let inTable = false;
-    let tableData: string[][] = [];
-
-    const flushTable = () => {
-        if (tableData.length === 0) return;
-        
-        const filteredData = tableData.filter(row => !row[0].match(/^[-:|\s]+$/));
-        
-        if (filteredData.length === 0) {
-            tableData = [];
-            return;
-        }
-
-        const rows = filteredData.map((rowData, rowIndex) => {
-            const isHeader = rowIndex === 0;
-            return new TableRow({
-                children: rowData.map((cellText, colIndex) => {
-                    let shadingFill = isHeader ? "1A3668" : (rowIndex % 2 === 0 ? "FFFFFF" : "E8F0FE");
-                    let textColor = isHeader ? "FFFFFF" : "000000";
-                    
-                    if (isHeader && cellText.toLowerCase().includes("pitfall")) {
-                        shadingFill = "E65100";
-                    } else if (!isHeader && filteredData[0][0].toLowerCase().includes("pitfall")) {
-                        shadingFill = rowIndex % 2 === 0 ? "FFFFFF" : "FFF3E0";
+        const parseTextToRunsAsync = async (text: string, isHeader: boolean = false, textColor: string = "000000") => {
+            const parts = text.split(/(\*\*.*?\*\*|\$\$[\s\S]*?\$\$|\$.*?\$)/g);
+            const runs: any[] = [];
+            for (const part of parts) {
+                if (!part) continue;
+                
+                if (part.startsWith('**') && part.endsWith('**')) {
+                    const cleanPart = sanitizeText(part.slice(2, -2));
+                    runs.push(new TextRun({ text: cleanPart, bold: true, color: textColor, font: "Arial", size: isHeader ? 20 : 22 }));
+                } else if (part.startsWith('$$') && part.endsWith('$$')) {
+                    const latex = part.slice(2, -2);
+                    const imgData = await getMathImage(latex, false);
+                    if (imgData) {
+                        runs.push(new ImageRun({
+                            data: imgData.buffer,
+                            transformation: { width: imgData.width, height: imgData.height }
+                        }));
+                    } else {
+                        runs.push(new TextRun({ text: part, color: textColor, bold: isHeader, font: "Arial", size: isHeader ? 20 : 22 }));
                     }
+                } else if (part.startsWith('$') && part.endsWith('$')) {
+                    const latex = part.slice(1, -1);
+                    const imgData = await getMathImage(latex, true);
+                    if (imgData) {
+                        runs.push(new ImageRun({
+                            data: imgData.buffer,
+                            transformation: { width: imgData.width, height: imgData.height }
+                        }));
+                    } else {
+                        runs.push(new TextRun({ text: part, color: textColor, bold: isHeader, font: "Arial", size: isHeader ? 20 : 22 }));
+                    }
+                } else {
+                    const cleanPart = sanitizeText(part);
+                    runs.push(new TextRun({ text: cleanPart, color: textColor, bold: isHeader, font: "Arial", size: isHeader ? 20 : 22 }));
+                }
+            }
+            return runs;
+        };
 
-                    return new TableCell({
-                        shading: { fill: shadingFill },
-                        margins: { top: 100, bottom: 100, left: 150, right: 150 },
-                        verticalAlign: VerticalAlign.CENTER,
-                        children: [
-                            new Paragraph({
-                                children: [new TextRun({ text: sanitizeText(cellText.trim()), bold: isHeader, color: textColor, font: "Arial", size: 20 })]
-                            })
-                        ]
-                    });
-                })
-            });
-        });
+        // --- COVER PAGE ---
+        docChildren.push(
+            new Paragraph({
+                alignment: AlignmentType.CENTER,
+                spacing: { before: 1400, after: 400 },
+                children: [new TextRun({ text: "G T U   S T U D Y   R E P O R T", color: "2B579A", bold: true, size: 24, font: "Arial" })]
+            })
+        );
+        docChildren.push(
+            new Paragraph({
+                alignment: AlignmentType.CENTER,
+                spacing: { after: 200 },
+                children: [new TextRun({ text: sanitizeText(subject.toUpperCase()), color: "1A3668", bold: true, size: 48, font: "Arial" })]
+            })
+        );
+        docChildren.push(
+            new Paragraph({
+                alignment: AlignmentType.CENTER,
+                spacing: { after: 800 },
+                children: [new TextRun({ text: sanitizeText(topic), color: "2B579A", italics: true, size: 32, font: "Arial" })]
+            })
+        );
 
+        // Metadata Table
         docChildren.push(
             new Table({
                 width: { size: 100, type: WidthType.PERCENTAGE },
@@ -202,130 +178,225 @@ export const ReportGenerator: React.FC = () => {
                     insideHorizontal: { style: BorderStyle.SINGLE, size: 4, color: "D9D9D9" },
                     insideVertical: { style: BorderStyle.SINGLE, size: 4, color: "D9D9D9" },
                 },
-                rows: rows
+                rows: [
+                    new TableRow({ children: [
+                        new TableCell({ width: { size: 30, type: WidthType.PERCENTAGE }, shading: { fill: "E8F0FE" }, margins: { top: 100, bottom: 100, left: 150, right: 150 }, children: [new Paragraph({ children: [new TextRun({ text: "Subject", bold: true, color: "1A3668", font: "Arial", size: 22 })] })] }),
+                        new TableCell({ width: { size: 70, type: WidthType.PERCENTAGE }, margins: { top: 100, bottom: 100, left: 150, right: 150 }, children: [new Paragraph({ children: [new TextRun({ text: sanitizeText(subject), font: "Arial", size: 22 })] })] })
+                    ]}),
+                    new TableRow({ children: [
+                        new TableCell({ width: { size: 30, type: WidthType.PERCENTAGE }, shading: { fill: "E8F0FE" }, margins: { top: 100, bottom: 100, left: 150, right: 150 }, children: [new Paragraph({ children: [new TextRun({ text: "Topic", bold: true, color: "1A3668", font: "Arial", size: 22 })] })] }),
+                        new TableCell({ width: { size: 70, type: WidthType.PERCENTAGE }, margins: { top: 100, bottom: 100, left: 150, right: 150 }, children: [new Paragraph({ children: [new TextRun({ text: sanitizeText(topic), font: "Arial", size: 22 })] })] })
+                    ]}),
+                    new TableRow({ children: [
+                        new TableCell({ width: { size: 30, type: WidthType.PERCENTAGE }, shading: { fill: "E8F0FE" }, margins: { top: 100, bottom: 100, left: 150, right: 150 }, children: [new Paragraph({ children: [new TextRun({ text: "Total Study Hours", bold: true, color: "1A3668", font: "Arial", size: 22 })] })] }),
+                        new TableCell({ width: { size: 70, type: WidthType.PERCENTAGE }, margins: { top: 100, bottom: 100, left: 150, right: 150 }, children: [new Paragraph({ children: [new TextRun({ text: `${sanitizeText(hours)} Hours`, font: "Arial", size: 22 })] })] })
+                    ]}),
+                    new TableRow({ children: [
+                        new TableCell({ width: { size: 30, type: WidthType.PERCENTAGE }, shading: { fill: "E8F0FE" }, margins: { top: 100, bottom: 100, left: 150, right: 150 }, children: [new Paragraph({ children: [new TextRun({ text: "Report Type", bold: true, color: "1A3668", font: "Arial", size: 22 })] })] }),
+                        new TableCell({ width: { size: 70, type: WidthType.PERCENTAGE }, margins: { top: 100, bottom: 100, left: 150, right: 150 }, children: [new Paragraph({ children: [new TextRun({ text: "Self-Study Summary Report", font: "Arial", size: 22 })] })] })
+                    ]}),
+                    new TableRow({ children: [
+                        new TableCell({ width: { size: 30, type: WidthType.PERCENTAGE }, shading: { fill: "E8F0FE" }, margins: { top: 100, bottom: 100, left: 150, right: 150 }, children: [new Paragraph({ children: [new TextRun({ text: "Institution", bold: true, color: "1A3668", font: "Arial", size: 22 })] })] }),
+                        new TableCell({ width: { size: 70, type: WidthType.PERCENTAGE }, margins: { top: 100, bottom: 100, left: 150, right: 150 }, children: [new Paragraph({ children: [new TextRun({ text: "Gujarat Technological University (GTU)", font: "Arial", size: 22 })] })] })
+                    ]})
+                ]
             })
         );
-        docChildren.push(new Paragraph({ spacing: { after: 200 } }));
-        tableData = [];
-    };
 
-    lines.forEach(line => {
-        const trimmed = line.trim();
-        
-        if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
-            inTable = true;
-            const cells = trimmed.split('|').slice(1, -1).map(c => c.trim());
-            tableData.push(cells);
-            return;
-        } else if (inTable) {
-            flushTable();
-            inTable = false;
-        }
+        docChildren.push(
+            new Paragraph({
+                alignment: AlignmentType.CENTER,
+                spacing: { before: 800 },
+                children: [new TextRun({ text: "Submitted by a GTU Student", color: "7F7F7F", font: "Arial", size: 22 })],
+                pageBreakBefore: false
+            })
+        );
 
-        if (!trimmed) {
-            docChildren.push(new Paragraph({ spacing: { after: 100 } }));
-            return;
-        }
+        docChildren.push(new Paragraph({ pageBreakBefore: true }));
 
-        if (trimmed.startsWith('# ')) {
-            const text = sanitizeText(trimmed.substring(2).toUpperCase());
-            docChildren.push(
-                new Paragraph({
-                    spacing: { before: 400, after: 200 },
-                    border: {
-                        bottom: { color: "1A3668", space: 1, style: BorderStyle.SINGLE, size: 12 }
-                    },
-                    children: [new TextRun({ text: text, color: "1A3668", bold: true, size: 28, font: "Arial" })]
-                })
-            );
-        } else if (trimmed.startsWith('## PART')) {
-            const match = trimmed.match(/## (PART \d+):\s*(.*)/i);
-            if (match) {
-                const partNum = match[1].toUpperCase();
-                const partTitle = match[2];
+        // --- CONTENT PARSING ---
+        let inTable = false;
+        let tableData: string[][] = [];
+
+        const flushTable = async () => {
+            if (tableData.length === 0) return;
+            
+            const filteredData = tableData.filter(row => !row[0].match(/^[-:|\s]+$/));
+            
+            if (filteredData.length === 0) {
+                tableData = [];
+                return;
+            }
+
+            const rows = await Promise.all(filteredData.map(async (rowData, rowIndex) => {
+                const isHeader = rowIndex === 0;
                 
-                docChildren.push(
-                    new Table({
-                        width: { size: 100, type: WidthType.PERCENTAGE },
-                        borders: {
-                            top: { style: BorderStyle.NONE, size: 0, color: "auto" },
-                            bottom: { style: BorderStyle.NONE, size: 0, color: "auto" },
-                            left: { style: BorderStyle.NONE, size: 0, color: "auto" },
-                            right: { style: BorderStyle.NONE, size: 0, color: "auto" },
-                            insideHorizontal: { style: BorderStyle.NONE, size: 0, color: "auto" },
-                            insideVertical: { style: BorderStyle.NONE, size: 0, color: "auto" },
-                        },
-                        rows: [
-                            new TableRow({
-                                children: [
-                                    new TableCell({
-                                        width: { size: 15, type: WidthType.PERCENTAGE },
-                                        shading: { fill: "1A3668" },
-                                        verticalAlign: VerticalAlign.CENTER,
-                                        margins: { top: 150, bottom: 150, left: 100, right: 100 },
-                                        children: [
-                                            new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: partNum.split(' ')[0], color: "FFFFFF", size: 16, font: "Arial" })] }),
-                                            new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: partNum.split(' ')[1], color: "FFFFFF", bold: true, size: 36, font: "Arial" })] })
-                                        ]
-                                    }),
-                                    new TableCell({
-                                        width: { size: 85, type: WidthType.PERCENTAGE },
-                                        shading: { fill: "2B579A" },
-                                        verticalAlign: VerticalAlign.CENTER,
-                                        margins: { top: 150, bottom: 150, left: 200, right: 200 },
-                                        children: [
-                                            new Paragraph({ children: [new TextRun({ text: sanitizeText(partTitle), color: "FFFFFF", bold: true, size: 28, font: "Arial" })] })
-                                        ]
-                                    })
-                                ]
+                const cells = await Promise.all(rowData.map(async (cellText, colIndex) => {
+                    let shadingFill = isHeader ? "1A3668" : (rowIndex % 2 === 0 ? "FFFFFF" : "E8F0FE");
+                    let textColor = isHeader ? "FFFFFF" : "000000";
+                    
+                    if (isHeader && cellText.toLowerCase().includes("pitfall")) {
+                        shadingFill = "E65100";
+                    } else if (!isHeader && filteredData[0][0].toLowerCase().includes("pitfall")) {
+                        shadingFill = rowIndex % 2 === 0 ? "FFFFFF" : "FFF3E0";
+                    }
+
+                    const runs = await parseTextToRunsAsync(cellText.trim(), isHeader, textColor);
+
+                    return new TableCell({
+                        shading: { fill: shadingFill },
+                        margins: { top: 100, bottom: 100, left: 150, right: 150 },
+                        verticalAlign: VerticalAlign.CENTER,
+                        children: [
+                            new Paragraph({
+                                children: runs
                             })
                         ]
+                    });
+                }));
+                
+                return new TableRow({ children: cells });
+            }));
+
+            docChildren.push(
+                new Table({
+                    width: { size: 100, type: WidthType.PERCENTAGE },
+                    borders: {
+                        top: { style: BorderStyle.SINGLE, size: 4, color: "D9D9D9" },
+                        bottom: { style: BorderStyle.SINGLE, size: 4, color: "D9D9D9" },
+                        left: { style: BorderStyle.SINGLE, size: 4, color: "D9D9D9" },
+                        right: { style: BorderStyle.SINGLE, size: 4, color: "D9D9D9" },
+                        insideHorizontal: { style: BorderStyle.SINGLE, size: 4, color: "D9D9D9" },
+                        insideVertical: { style: BorderStyle.SINGLE, size: 4, color: "D9D9D9" },
+                    },
+                    rows: rows
+                })
+            );
+            docChildren.push(new Paragraph({ spacing: { after: 200 } }));
+            tableData = [];
+        };
+
+        for (const line of lines) {
+            const trimmed = line.trim();
+            
+            if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+                inTable = true;
+                const cells = trimmed.split('|').slice(1, -1).map(c => c.trim());
+                tableData.push(cells);
+                continue;
+            } else if (inTable) {
+                await flushTable();
+                inTable = false;
+            }
+
+            if (!trimmed) {
+                docChildren.push(new Paragraph({ spacing: { after: 100 } }));
+                continue;
+            }
+
+            if (trimmed.startsWith('# ')) {
+                const text = sanitizeText(trimmed.substring(2).toUpperCase());
+                docChildren.push(
+                    new Paragraph({
+                        spacing: { before: 400, after: 200 },
+                        border: {
+                            bottom: { color: "1A3668", space: 1, style: BorderStyle.SINGLE, size: 12 }
+                        },
+                        children: [new TextRun({ text: text, color: "1A3668", bold: true, size: 28, font: "Arial" })]
                     })
                 );
-                docChildren.push(new Paragraph({ spacing: { after: 200 } }));
-            } else {
+            } else if (trimmed.startsWith('## PART')) {
+                const match = trimmed.match(/## (PART \d+):\s*(.*)/i);
+                if (match) {
+                    const partNum = match[1].toUpperCase();
+                    const partTitle = match[2];
+                    
+                    docChildren.push(
+                        new Table({
+                            width: { size: 100, type: WidthType.PERCENTAGE },
+                            borders: {
+                                top: { style: BorderStyle.NONE, size: 0, color: "auto" },
+                                bottom: { style: BorderStyle.NONE, size: 0, color: "auto" },
+                                left: { style: BorderStyle.NONE, size: 0, color: "auto" },
+                                right: { style: BorderStyle.NONE, size: 0, color: "auto" },
+                                insideHorizontal: { style: BorderStyle.NONE, size: 0, color: "auto" },
+                                insideVertical: { style: BorderStyle.NONE, size: 0, color: "auto" },
+                            },
+                            rows: [
+                                new TableRow({
+                                    children: [
+                                        new TableCell({
+                                            width: { size: 15, type: WidthType.PERCENTAGE },
+                                            shading: { fill: "1A3668" },
+                                            verticalAlign: VerticalAlign.CENTER,
+                                            margins: { top: 150, bottom: 150, left: 100, right: 100 },
+                                            children: [
+                                                new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: partNum.split(' ')[0], color: "FFFFFF", size: 16, font: "Arial" })] }),
+                                                new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: partNum.split(' ')[1], color: "FFFFFF", bold: true, size: 36, font: "Arial" })] })
+                                            ]
+                                        }),
+                                        new TableCell({
+                                            width: { size: 85, type: WidthType.PERCENTAGE },
+                                            shading: { fill: "2B579A" },
+                                            verticalAlign: VerticalAlign.CENTER,
+                                            margins: { top: 150, bottom: 150, left: 200, right: 200 },
+                                            children: [
+                                                new Paragraph({ children: [new TextRun({ text: sanitizeText(partTitle), color: "FFFFFF", bold: true, size: 28, font: "Arial" })] })
+                                            ]
+                                        })
+                                    ]
+                                })
+                            ]
+                        })
+                    );
+                    docChildren.push(new Paragraph({ spacing: { after: 200 } }));
+                } else {
+                    docChildren.push(
+                        new Paragraph({
+                            spacing: { before: 300, after: 150 },
+                            children: [new TextRun({ text: sanitizeText(trimmed.substring(3)), color: "2B579A", bold: true, size: 26, font: "Arial" })]
+                        })
+                    );
+                }
+            } else if (trimmed.startsWith('## ')) {
                 docChildren.push(
                     new Paragraph({
                         spacing: { before: 300, after: 150 },
                         children: [new TextRun({ text: sanitizeText(trimmed.substring(3)), color: "2B579A", bold: true, size: 26, font: "Arial" })]
                     })
                 );
+            } else if (trimmed.startsWith('### ')) {
+                docChildren.push(
+                    new Paragraph({
+                        spacing: { before: 200, after: 100 },
+                        children: [new TextRun({ text: sanitizeText(trimmed.substring(4)), color: "2B579A", bold: true, size: 24, font: "Arial" })]
+                    })
+                );
+            } else if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+                const content = trimmed.substring(2);
+                const runs = await parseTextToRunsAsync(content);
+                docChildren.push(
+                    new Paragraph({
+                        children: runs,
+                        bullet: { level: 0 },
+                        spacing: { after: 100 }
+                    })
+                );
+            } else {
+                const runs = await parseTextToRunsAsync(trimmed);
+                docChildren.push(
+                    new Paragraph({
+                        children: runs,
+                        spacing: { after: 150 },
+                        alignment: AlignmentType.JUSTIFIED
+                    })
+                );
             }
-        } else if (trimmed.startsWith('## ')) {
-            docChildren.push(
-                new Paragraph({
-                    spacing: { before: 300, after: 150 },
-                    children: [new TextRun({ text: sanitizeText(trimmed.substring(3)), color: "2B579A", bold: true, size: 26, font: "Arial" })]
-                })
-            );
-        } else if (trimmed.startsWith('### ')) {
-            docChildren.push(
-                new Paragraph({
-                    spacing: { before: 200, after: 100 },
-                    children: [new TextRun({ text: sanitizeText(trimmed.substring(4)), color: "2B579A", bold: true, size: 24, font: "Arial" })]
-                })
-            );
-        } else if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-            const content = trimmed.substring(2);
-            docChildren.push(
-                new Paragraph({
-                    children: parseTextToRuns(content),
-                    bullet: { level: 0 },
-                    spacing: { after: 100 }
-                })
-            );
-        } else {
-            docChildren.push(
-                new Paragraph({
-                    children: parseTextToRuns(trimmed),
-                    spacing: { after: 150 },
-                    alignment: AlignmentType.JUSTIFIED
-                })
-            );
         }
-    });
 
-    if (inTable) flushTable();
+        if (inTable) {
+            await flushTable();
+        }
 
     const header = new Header({
         children: [
@@ -390,34 +461,35 @@ export const ReportGenerator: React.FC = () => {
         ]
     });
 
-    const doc = new Document({
-        sections: [{
-            properties: {
-                page: {
-                    margin: {
-                        top: 1000,
-                        right: 1000,
-                        bottom: 1000,
-                        left: 1000,
+        const doc = new Document({
+            sections: [{
+                properties: {
+                    page: {
+                        margin: {
+                            top: 1000,
+                            right: 1000,
+                            bottom: 1000,
+                            left: 1000,
+                        },
                     },
                 },
-            },
-            headers: {
-                default: header,
-            },
-            footers: {
-                default: footer,
-            },
-            children: docChildren
-        }]
-    });
+                headers: {
+                    default: header,
+                },
+                footers: {
+                    default: footer,
+                },
+                children: docChildren
+            }]
+        });
 
-    try {
         const blob = await Packer.toBlob(doc);
         saveAs(blob, `${subject.replace(/\s+/g, '_')}_${topic.replace(/\s+/g, '_')}_Report.docx`);
     } catch (e) {
         console.error("Error creating docx", e);
         alert("Failed to create document file. Please try text copy.");
+    } finally {
+        setIsDownloading(false);
     }
   };
 
@@ -477,6 +549,60 @@ export const ReportGenerator: React.FC = () => {
                 className="w-full bg-indigo-950/60 border-2 border-indigo-500/30 rounded-2xl p-4 text-white placeholder-indigo-400/70 focus:ring-4 focus:ring-cyan-500/20 focus:border-cyan-400 transition-all outline-none font-medium" 
                 placeholder="e.g. 5 ⏰" 
               />
+            </div>
+
+            <div className="space-y-2 group/input md:col-span-3">
+              <label className="block text-sm font-bold text-indigo-300 uppercase tracking-wider ml-2">Report Template</label>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {['Standard Study Report', 'Detailed Research Paper', 'Executive Summary', 'Literature Review'].map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setTemplateType(type)}
+                    className={`p-3 rounded-xl border-2 transition-all font-bold text-xs ${
+                      templateType === type 
+                        ? 'border-pink-500 bg-pink-500/20 text-white' 
+                        : 'border-indigo-500/30 bg-indigo-950/40 text-indigo-300 hover:border-indigo-500/50'
+                    }`}
+                  >
+                    {type}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2 group/input md:col-span-3">
+              <label className="block text-sm font-bold text-slate-400 uppercase tracking-widest ml-2">Upload Diagrams / Images (Optional)</label>
+              <div className="flex items-center justify-center w-full">
+                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-indigo-500/30 border-dashed rounded-2xl cursor-pointer bg-indigo-950/40 hover:bg-indigo-900/60 transition-colors">
+                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                    <svg className="w-8 h-8 mb-3 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                    <p className="mb-2 text-sm text-indigo-300"><span className="font-semibold">Click to upload</span> or drag and drop</p>
+                    <p className="text-xs text-indigo-400/60">PNG, JPG or SVG</p>
+                  </div>
+                  <input 
+                    type="file" 
+                    className="hidden" 
+                    multiple 
+                    accept="image/*"
+                    onChange={(e) => {
+                      if (e.target.files) {
+                        setUploadedImages(Array.from(e.target.files));
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+              {uploadedImages.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {uploadedImages.map((file, i) => (
+                    <div key={i} className="bg-pink-500/10 text-pink-400 px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-2">
+                      {file.name}
+                      <button type="button" onClick={() => setUploadedImages(prev => prev.filter((_, idx) => idx !== i))}>×</button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -546,9 +672,9 @@ export const ReportGenerator: React.FC = () => {
                  <span>{isHumanizing ? 'Humanizing...' : 'Humanize (Pro)'}</span>
                </button>
 
-              <button onClick={handleDownload} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-cyan-600/20 hover:bg-cyan-600/40 border-2 border-cyan-500 text-cyan-200 rounded-xl transition font-bold active:scale-95 shadow-lg shadow-cyan-500/20">
-                <DownloadIcon />
-                <span>Save .docx</span>
+              <button onClick={handleDownload} disabled={isDownloading} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-cyan-600/20 hover:bg-cyan-600/40 border-2 border-cyan-500 text-cyan-200 rounded-xl transition font-bold active:scale-95 shadow-lg shadow-cyan-500/20 disabled:opacity-50">
+                {isDownloading ? <span className="animate-spin text-xl">⏳</span> : <DownloadIcon />}
+                <span>{isDownloading ? 'Saving...' : 'Save .docx'}</span>
               </button>
 
               <button onClick={handleCopy} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-3 bg-indigo-900/50 hover:bg-indigo-800 border-2 border-indigo-700 rounded-xl transition font-bold text-indigo-100 active:scale-95">
@@ -566,7 +692,30 @@ export const ReportGenerator: React.FC = () => {
                     </div>
                 </div>
              )}
-             <pre className="text-indigo-100 whitespace-pre-wrap font-sans text-base leading-relaxed">{report}</pre>
+             <div className="text-indigo-100 font-sans text-base leading-relaxed markdown-body prose prose-invert max-w-none prose-headings:text-indigo-200 prose-a:text-cyan-400">
+                <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                    {report}
+                </ReactMarkdown>
+
+                {uploadedImages.length > 0 && (
+                  <div className="mt-8 pt-8 border-t border-white/10">
+                    <h4 className="text-xl font-bold text-pink-300 mb-4">Attached Diagrams</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {uploadedImages.map((file, i) => (
+                        <div key={i} className="bg-white/5 p-2 rounded-xl border border-white/10">
+                          <img 
+                            src={URL.createObjectURL(file)} 
+                            alt={file.name} 
+                            className="w-full h-auto rounded-lg"
+                            referrerPolicy="no-referrer"
+                          />
+                          <p className="text-center text-xs mt-2 text-indigo-300/60">{file.name}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+             </div>
           </div>
         </div>
       )}

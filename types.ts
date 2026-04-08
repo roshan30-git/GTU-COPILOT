@@ -3,7 +3,7 @@ export enum Capability {
   REPORT = 'REPORT',
   PPT = 'PPT',
   EXPERT = 'EXPERT',
-  PHYSICS = 'PHYSICS',
+  CASE_STUDY = 'CASE_STUDY',
   HUMANIZE = 'HUMANIZE',
   BLOG = 'BLOG',
 }

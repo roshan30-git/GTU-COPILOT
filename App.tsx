@@ -5,7 +5,7 @@ import { Tabs } from './components/Tabs';
 import { ReportGenerator } from './components/ReportGenerator';
 import { PptMaker } from './components/PptMaker';
 import { GtuExpert } from './components/GtuExpert';
-import { PhysicsModelGenerator } from './components/PhysicsModelGenerator';
+import { CaseStudyGenerator } from './components/CaseStudyGenerator';
 import { Humanizer } from './components/Humanizer';
 import { Blog } from './components/Blog';
 import { Capability } from './types';
@@ -17,8 +17,8 @@ const App: React.FC = () => {
     switch (activeTab) {
       case Capability.REPORT:
         return <ReportGenerator />;
-      case Capability.PHYSICS:
-        return <PhysicsModelGenerator />;
+      case Capability.CASE_STUDY:
+        return <CaseStudyGenerator />;
       case Capability.PPT:
         return <PptMaker />;
       case Capability.EXPERT:
@@ -39,8 +39,8 @@ const App: React.FC = () => {
       <div className="fixed bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-cyan-400/20 rounded-full blur-[100px] pointer-events-none mix-blend-screen animate-pulse duration-[5s]"></div>
       <div className="fixed top-[20%] right-[10%] w-[30%] h-[30%] bg-yellow-400/10 rounded-full blur-[80px] pointer-events-none mix-blend-screen animate-bounce duration-[10s]"></div>
       
-      {/* Extra glow for Physics tab */}
-      {activeTab === Capability.PHYSICS && (
+      {/* Extra glow for Case Study tab */}
+      {activeTab === Capability.CASE_STUDY && (
           <div className="fixed top-[60%] right-[20%] w-[40%] h-[40%] bg-blue-500/10 rounded-full blur-[120px] pointer-events-none mix-blend-screen transition-opacity duration-1000"></div>
       )}
 

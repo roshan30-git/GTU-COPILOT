@@ -13,9 +13,14 @@
     "@google/genai": "^1.29.1",
     "docx": "8.5.0",
     "file-saver": "2.0.5",
+    "katex": "^0.16.40",
+    "pdf-lib": "^1.17.1",
+    "pptxgenjs": "^4.0.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "react-markdown": "^10.1.0"
+    "react-markdown": "^10.1.0",
+    "rehype-katex": "^7.0.1",
+    "remark-math": "^6.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
